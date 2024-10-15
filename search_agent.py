@@ -53,9 +53,12 @@ class Research_Tool:
 
         return results
 
-    def scrape_page(self, url: str) -> Dict[str, Any]:
+    def scrape_page(self, url: str, header_disabled = False) -> Dict[str, Any]:
         try:
-            response = requests.get(url, headers=self.headers, timeout=10)
+            if header_disabled:
+                response = requests.get(url, timeout=10)
+            else:
+                response = requests.get(url, headers=self.headers, timeout=10)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -66,7 +69,11 @@ class Research_Tool:
             result['structured_data'] = self.extract_structured_data(soup)
             return result
         except requests.RequestException as e:
-            print(f"Error scraping {url}: {str(e)}")
+            try:
+                return self.scrape_page(url=url, header_disabled=True)
+            except:
+                print(f"Error scraping {url}: {str(e)}")
+                return None
             return None
 
     def extract_links(self, base_url: str, html_content: str) -> List[str]:

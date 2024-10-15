@@ -4,7 +4,7 @@ import json
 from duckduckgo_search import DDGS
 import requests
 from bs4 import BeautifulSoup
-
+from groq import Groq
 
 def extract_query(text: str) -> str:
     pattern = r"```(.*?)```"
@@ -41,6 +41,7 @@ def ask_llm(query, api_key = "95aa27ad-fe66-42f3-b745-b81217733190", json_schema
         except Exception as e:
             print(e)
             print(response.choices[0].message.content)
+
 
 
 
@@ -95,9 +96,9 @@ SUMMRIZATION_PROMPT = """{} \n Extract the most important information from the f
                         Focus on the main ideas, key findings, and crucial details. Omit unnecessary words and phrases, and prioritize concise language. 
                         If you receive any captcha verification and there is no data regarding th query. return "[status: failed]" without any apology or explanation. 
                         Do not try to fix this using your own knowledge, use only the context provided to construct the answer. 
-                        Also Attach Image urls whenever required."""
+                        """
 
 ANSWER_GENERATION_PROMPT = """Answer this query: {}, based on the following context in Markdown Format. 
                             Context: {}
                             You may use Your own knowledge if required, but do not mention about your own knowledge anywhere.
-                            Please Provide Image Urls Whenever you see fit."""
+                            """
