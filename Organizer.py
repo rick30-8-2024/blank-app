@@ -5,8 +5,12 @@ from search_agent import Research_Tool
 from utils import ask_llm
 from utils import fetch_images
 from utils import fetch_videos
-from utils import SUMMRIZATION_PROMPT, ANSWER_GENERATION_PROMPT
+from utils import SUMMRIZATION_PROMPT, ANSWER_GENERATION_PROMPT, DYNAMIC_SEARCH_PROMPT
 from utils import split_corpus
+import json
+
+
+
 class Organizer:
     def __init__(self):
         self.researcher = Research_Tool()
@@ -18,23 +22,44 @@ class Organizer:
 
     def get_filtered_urls(self, query):
         print(query)
-        urls = self.researcher.search(query, random.randint(10,15))
+        urls = self.researcher.search(query, random.randint(10, 15))
         print(urls)
+        
+        # Get the URLs in a list
         self.all_urls = [i['url'] for i in urls]
-        urls = ask_llm(query= f"{urls} \nreturn me 5 url that is most reliable for this query: '{query}'", json_schema='{"response":list(str)}',model='Meta-Llama-3.1-70B-Instruct')
-        filtered_urls = [i for i in urls['response'] if "wikipedia.org/wiki/" in i] if "wikipedia.org/wiki/" in str(urls) else urls['response']
-        print(filtered_urls)
-        return filtered_urls
+        
+        # Pass the URLs to the LLM for further filtering
+        urls = ask_llm(query=str(urls) + DYNAMIC_SEARCH_PROMPT + query, JSON=True, model='Meta-Llama-3.1-70B-Instruct')
+        print(urls, type(urls))
+        try:
+            if urls.get('status') == 'pending':
+                print("whole response: ", urls)
+                print("Just urls", urls.get('urls'))
+                
+                # Check if the response has 'urls' and filter accordingly
+                if urls.get('urls'):
+                    filtered_urls = [i for i in urls['urls'] if "wikipedia.org/wiki/" in i] \
+                                    if "wikipedia.org/wiki/" in str(urls) else urls['urls']
+                    print(filtered_urls)
+                    return filtered_urls if filtered_urls else []  # Return empty list if no URLs
+                else:
+                    return []  # Return empty list if no 'urls' key is present
+            else:
+                print("url_answer", urls.get('answer'))
+                return urls.get('answer') or []  # Return empty list if 'answer' is None
+        except Exception as e:
+            print("Exception occurred:", str(e))
+            print("except", urls)
+            return [] 
 
-    async def summerize(self, data, model='Meta-Llama-3.1-8B-Instruct', bullet=True, show = False):
+
+    async def summerize(self, data, prompt, model='Meta-Llama-3.1-8B-Instruct', show = False):
         text, query, key = data
+        print("COUNT HERE")
         if show:
             print(data)
         
-        prompt = SUMMRIZATION_PROMPT.format(text, query)
-        
-        if not bullet:
-            prompt = ANSWER_GENERATION_PROMPT.format(query, text)
+        prompt = prompt.format(data = text, query = query)
 
         data = await asyncio.to_thread(ask_llm, query=prompt, model=model , JSON=False, api_key=key)
         if "[status: failed]" in data:
@@ -42,47 +67,50 @@ class Organizer:
         print("-"*150,'\n',data,'\n',"-"*150)
         return data
 
-    async def Processor(self, url, query):
+    async def Processor(self, url):
         json_response = self.researcher.scrape_page(url)
         full_text = json_response['structured_data']['full_text']
-        self.all_Images.extend([i['src'] for i in json_response['structured_data']['images']])
-        self.all_links.extend([i['src'] for i in json_response['structured_data']['links']])
-        
-        # for i in range(5):
-        #     print(len(chunked_text))
-        #     text_chunk_list = [(chunked_text[m], query, self.keys[m%10]) for m in range(len(chunked_text))]
-        #     tasks = [self.summerize(chunk, show=True) for chunk in text_chunk_list]
-        #     results = await asyncio.gather(*tasks)
-        #     chunked_text = split_corpus("\n\n".join(results))
-        #     if len(chunked_text) == 1:
-        #         return "\n\n".join(results)
+        self.all_Images.extend(json_response['structured_data']['images'])
+        self.all_links.extend(json_response['structured_data']['links'])
         return full_text
     
     async def process_text_corpus(self, text_corpus, query):
         chunked_text = split_corpus(text_corpus)
         
         while len(chunked_text) > 1:  
+            print("Here We Go Again")
             text_chunk_list = [(chunk, query, self.keys[m % len(self.keys)]) for m, chunk in enumerate(chunked_text)]
-            tasks = [self.summarize(chunk, show=True) for chunk in text_chunk_list]
+            tasks = [self.summerize(chunk, prompt=SUMMRIZATION_PROMPT) for chunk in text_chunk_list]
             results = await asyncio.gather(*tasks)
             
-            text_corpus = "\n\n".join(results)  
-            chunked_text = split_corpus(text_corpus)  
+            text_corpus = "\n\n".join(results)
+            print(len(text_corpus))  
+            chunked_text = split_corpus(text_corpus) 
+            print(len(chunked_text)) 
+        
+        text_corpus = await self.summerize(data = (text_corpus, query, random.choice(self.keys)), prompt =  ANSWER_GENERATION_PROMPT, model = 'Meta-Llama-3.1-70B-Instruct')
 
         return text_corpus  
 
 
     async def search(self, query):
         filtered_urls = self.get_filtered_urls(query)
-        tasks = [self.Processor(url, query) for url in filtered_urls]
-        list_of_chunks = await asyncio.gather(*tasks)
-        alltext = "\n\n".join(list_of_chunks)
-        summery = await self.process_text_corpus(alltext, query)
-        # print(len(final_data_list))
-        # print(final_data_list)
-        # final_data_list = "\n\n".join(final_data_list)
-        # final_data = await self.summerize((final_data_list, query, random.choice(self.keys)), bullet=False)
-        return final_data_list
+        if not isinstance(filtered_urls, str):
+            tasks = [self.Processor(url) for url in filtered_urls]
+            list_of_chunks = await asyncio.gather(*tasks)
+            alltext = "\n\n".join(list_of_chunks)
+            summery = await self.process_text_corpus(alltext, query)
+            summery = summery.strip('\n').strip(" ")
+            print(self.all_Images)
+            print(self.all_links)
+            print(self.all_urls)
+            # print(len(final_data_list))
+            # print(final_data_list)
+            # final_data_list = "\n\n".join(final_data_list)
+            # final_data = await self.summerize((final_data_list, query, random.choice(self.keys)), bullet=False)
+            return summery
+        else:
+            return filtered_urls
 
 
 

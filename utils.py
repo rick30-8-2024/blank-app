@@ -2,9 +2,7 @@ import re
 import openai
 import json
 from duckduckgo_search import DDGS
-import requests
-from bs4 import BeautifulSoup
-from groq import Groq
+
 
 def extract_query(text: str) -> str:
     pattern = r"```(.*?)```"
@@ -12,23 +10,16 @@ def extract_query(text: str) -> str:
     return matches[0] if matches else text
 
 
-def ask_llm(query, api_key = "95aa27ad-fe66-42f3-b745-b81217733190", json_schema = None, model = "Meta-Llama-3.1-70B-Instruct", JSON = True):
+def ask_llm(query, api_key = "95aa27ad-fe66-42f3-b745-b81217733190", json_schema = None, model = "Meta-Llama-3.1-70B-Instruct", JSON = False):
     for i in range(5):
         SambaNova_Client = openai.OpenAI(
                 api_key=api_key,
                 base_url="https://api.sambanova.ai/v1",
             )
-        if not JSON:
-            prompt = query
-        else:
-            prompt = f"""Answer the following question in the JSON format{json_schema}
-                        YOU MUST PUT THE JSON ANSWER WITHIN TWO ```
-                         Question:
-                         {query}"""
 
         response = SambaNova_Client.chat.completions.create(
             model=model,
-            messages=[{"role":"system","content": "You're a advance data analyst."},{"role":"user","content":prompt}],
+            messages=[{"role":"system","content": "You're a advance data analyst."},{"role":"user","content":query}],
             temperature =  0.1,
             top_p = 0.1,
             response_format={"type": "json_object"}
@@ -92,13 +83,22 @@ def split_corpus(corpus, max_words=4000):
     return [" ".join(i) for i in all_splits]
 
 
-SUMMRIZATION_PROMPT = """{} \n Extract the most important information from the following paragraph and summarize it in bullet points focusing on the query: "{}". 
-                        Focus on the main ideas, key findings, and crucial details. Omit unnecessary words and phrases, and prioritize concise language. 
-                        If you receive any captcha verification and there is no data regarding th query. return "[status: failed]" without any apology or explanation. 
-                        Do not try to fix this using your own knowledge, use only the context provided to construct the answer. 
-                        """
+SUMMRIZATION_PROMPT = """{data} \n Extract and Summerize all the informations related to "{query}", Withing 200 words in Bullet format."""
 
-ANSWER_GENERATION_PROMPT = """Answer this query: {}, based on the following context in Markdown Format. 
-                            Context: {}
+ANSWER_GENERATION_PROMPT = """Answer this query: {query}, based on the following context in Markdown Format. 
+                            Context: {data}
                             You may use Your own knowledge if required, but do not mention about your own knowledge anywhere.
                             """
+
+DYNAMIC_SEARCH_PROMPT = """
+                            Answer this question in this format:
+                            {"status":str, "answer": str, "urls": list(str)}
+                            YOU MUST PUT THE JSON ANSWER WITHIN TWO ```
+
+                            if you can answer the question with the provided context, set status to 'success' else it will be as 'pending'
+                            if you can't answer the question keep answer as empty.
+                            if you are not able to answer with the provided context return a list of urls from the provided ones that you would like to visit for more data. return a list of upto 5 urls.
+                            if you are able to answer from the provide context keep the urls empty.
+                            NOTE: if you think that the question provided is a descriptive type, return a list of upto 5 urls for further research.
+                            Question: 
+                        """

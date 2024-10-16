@@ -56,9 +56,9 @@ class Research_Tool:
     def scrape_page(self, url: str, header_disabled = False) -> Dict[str, Any]:
         try:
             if header_disabled:
-                response = requests.get(url, timeout=10)
+                response = requests.get(url, timeout=5)
             else:
-                response = requests.get(url, headers=self.headers, timeout=10)
+                response = requests.get(url, headers=self.headers, timeout=5)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -183,7 +183,7 @@ class Research_Tool:
         
         try:
             log_debug("Sending GET request to Google")
-            response = requests.get(search_url, headers=self.headers, timeout=10)
+            response = requests.get(search_url, headers=self.headers, timeout=5)
             log_debug(f"Response status code: {response.status_code}")
             response.raise_for_status()
             
@@ -236,7 +236,7 @@ class Research_Tool:
     def get_web_content(self, url: str) -> str:
         log_debug(f"Fetching content from: {url}")
         try:
-            response = requests.get(url, headers=self.headers, timeout=10)
+            response = requests.get(url, headers=self.headers, timeout=5)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
             
