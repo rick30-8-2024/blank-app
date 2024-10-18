@@ -28,6 +28,7 @@ class Organizer:
         self.all_urls = [i['url'] for i in all_urls]
         
         urls = ask_llm(query=str(all_urls) + prompt + query, JSON=True, model='Meta-Llama-3.1-70B-Instruct')
+        print(urls)
         try:
             if urls.get('status') == 'pending':
                 if urls.get('urls'):
@@ -37,6 +38,9 @@ class Organizer:
                     return filtered_urls if filtered_urls else []  
                 else:
                     return []  
+            elif urls.get('status') == 'code':
+                ans = ask_llm(query = query, model = 'Meta-Llama-3.1-405B-Instruct')
+                return ans
             else:
                 # print("url_answer", urls.get('answer'))
                 return urls.get('answer') or []  
@@ -46,7 +50,7 @@ class Organizer:
             return [] 
 
 
-    async def summerize(self, data, prompt, model='Meta-Llama-3.2-3B-Instruct', show = False):
+    async def summerize(self, data, prompt, model='Meta-Llama-3.1-8B-Instruct', show = False):
         text, query, key = data
         # if show:
         #     print(data)

@@ -23,11 +23,10 @@ def ask_llm(query, api_key = "95aa27ad-fe66-42f3-b745-b81217733190", model = "Me
             messages=[{"role":"system","content": "You're a advance data analyst."},{"role":"user","content":query}],
             temperature =  0.1,
             top_p = 0.1,
-            response_format={"type": "json_object"}
         )
         if not JSON:
             # print(model)
-            return extract_query(response.choices[0].message.content)
+            return response.choices[0].message.content
         try:
             data = json.loads(extract_query(response.choices[0].message.content))
             return data
@@ -142,7 +141,7 @@ QUICK_SEARCH_PROMPT = """
                             if you can't answer the question keep answer as empty.
                             if you are not able to answer with the provided context return a list of urls from the provided ones that you would like to visit for more data. return a list of upto 5 urls.
                             if you are able to answer from the provide context keep the urls empty.
-                            NOTE: YOU MUSTREPLY WITH UPTO 5 URLS IF YOURE ASKED TO GENERATE ANY CODE IN THE QUESTION. DO NOT GENERATE ANY CODE EVEN IF YOU KNOW THE ANSWER.
+                            NOTE: YOU MUST SET THE status to 'code' IF YOURE ASKED TO GENERATE ANY CODE IN THE QUESTION. DO NOT GENERATE ANY CODE EVEN IF YOU KNOW THE ANSWER.
                             Question: 
                         """
 

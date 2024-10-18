@@ -2,7 +2,6 @@ import streamlit as st
 import time
 from search_agent import Research_Tool
 import random
-from streamlit_components import Components
 from utils import QUICK_SEARCH_PROMPT, LENGTHY_SEARCH_PROMPT
 from Organizer import Organizer
 import asyncio
