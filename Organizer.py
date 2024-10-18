@@ -3,7 +3,6 @@ import asyncio
 import random
 from search_agent import Research_Tool
 from utils import ask_llm
-from utils import fetch_images
 from utils import fetch_videos
 from utils import SUMMRIZATION_PROMPT, ANSWER_GENERATION_PROMPT, LINK_SUMMERIZATION_PROMPT
 from utils import split_corpus
@@ -71,6 +70,7 @@ class Organizer:
         return json_response
     
     async def process_text_corpus(self, text_corpus, query, prompt, model = "Meta-Llama-3.1-8B-Instruct"):
+        print(text_corpus)
         chunked_text = split_corpus(text_corpus)
         
         while len(chunked_text) > 1:  
@@ -85,7 +85,12 @@ class Organizer:
             # print(len(chunked_text)) 
         
         text_corpus = await self.summerize(data = (text_corpus, query, random.choice(self.keys)), prompt =  ANSWER_GENERATION_PROMPT, model = 'Meta-Llama-3.1-70B-Instruct')
-        # print(model)
+        if 'image' in query:
+            print("image_output: ",text_corpus)
+        if 'link' in query:
+            print("link_output: ",text_corpus)
+        else:
+            print("text_output: ", text_corpus)
         return text_corpus  
     
     async def mass_check(self, list_of_data, function):
@@ -101,34 +106,37 @@ class Organizer:
     async def process_url(self, filtered_urls):
         tasks = [self.Processor(url) for url in filtered_urls]
         list_of_json = await asyncio.gather(*tasks)
+        # print("all Images",self.all_Images)
         self.all_Images = await self.mass_check([
                                 i for i in self.all_Images
                                 if (
-                                    not i['alt'] == ''  # Check if alt text is not empty
-                                    and any(ext in i['src'] for ext in [".png", ".jpg", ".webp", ".jpeg"])  # Check for allowed extensions
+                                    any(ext in i['src'] for ext in [".png", ".jpg", ".webp", ".jpeg"])  # Check for allowed extensions
                                     and "svg" not in i['src']  # Exclude SVG images
                                     and not i['src'].startswith("data")  # Exclude inline base64 images
-                                    and i['src'].startswith("https://")
+                                    and (i['src'].startswith("https://") or i['src'].startswith("//"))
                                 )
                             ], 'image')
         self.all_links = await self.mass_check([i for i in self.all_links if i['text'] != '' and i['href'].startswith("https://")], 'link')
-        print("all Images",self.all_Images)
-        print("all links", self.all_links)
+        # print("all Images",self.all_Images)
+        # print("all links", self.all_links)
         return {"Crawl Results": list_of_json}
 
     async def multi_text_processor(self, query):
+        # print(self.all_Images)
+        # print(self.all_links)
         tasks = [self.process_text_corpus(text_corpus= " ".join(self.full_text), query = query, prompt = SUMMRIZATION_PROMPT, model='Meta-Llama-3.1-8B-Instruct'),
                  self.process_text_corpus(text_corpus=str(self.all_Images), query = query, prompt=IMAGE_SUMMERIZATION_PROMPT, model = "Meta-Llama-3.1-70B-Instruct"),
                  self.process_text_corpus(text_corpus=str(self.all_links), query = query, prompt=LINK_SUMMERIZATION_PROMPT, model = "Meta-Llama-3.1-70B-Instruct")
                 ]
 
         text_image_links = await asyncio.gather(*tasks)
-        final_report = ask_llm(query= REPORT_GENERATION_PROMPT.format(data = str(text_image_links), question = query), model="Meta-Llama-3.1-405B-Instruct")
-        print(final_report)
+        # print(text_image_links)
+        final_report = ask_llm(query= REPORT_GENERATION_PROMPT.format(data = str(text_image_links), question = query), model="Meta-Llama-3.1-70B-Instruct")
+        # print(final_report)
         return final_report
 
     def fine_tune_ans(self, query, answer):
-        data = ask_llm(query= SHORT_ANSWER_FINE_TUNING_PROMPT.format(query = query, answer = answer), model="Meta-Llama-3.1-405B-Instruct")
+        data = ask_llm(query= SHORT_ANSWER_FINE_TUNING_PROMPT.format(query = query, answer = answer), model="Meta-Llama-3.1-70B-Instruct")
         print(data)
         return data
     

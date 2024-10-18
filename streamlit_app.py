@@ -17,6 +17,7 @@ async def main():
     st.session_state.Decision = False
     st.session_state.crawl_status = False
     st.session_state.ready_for_extraction = False
+    st.session_state.answer = False
 
     st.markdown(
             """
@@ -52,6 +53,10 @@ async def main():
         if st.button("Search", type="primary"):
             if st.session_state.SearchEngineStatus:
                 st.session_state.SearchEngineStatus = False
+                st.session_state.Decision = False
+                st.session_state.crawl_status = False
+                st.session_state.ready_for_extraction = False
+                st.session_state.answer = False
 
             with st.spinner('Searching The Internet...'):
                 #Searching The Internet
@@ -91,7 +96,8 @@ async def main():
         else:
             #Meaning It's the answer
             with st.spinner('Structuring The Answer...'):
-                st.markdown(organizer.fine_tune_ans(query = st.session_state.search_query, answer = temp_ans))
+                st.session_state.answer = organizer.fine_tune_ans(query = st.session_state.search_query, answer = temp_ans)
+                # st.markdown()
 
     if st.session_state.crawl_status == True:
         with st.spinner('Crawling and Collecting Data...'):
@@ -104,9 +110,11 @@ async def main():
     if st.session_state.ready_for_extraction == True:
         with st.spinner('Summerizing and Generating Report (This may take upto 2 mins)...'):
             processed_data = await organizer.multi_text_processor(st.session_state.search_query)
-            st.markdown(processed_data)
+            st.session_state.answer = processed_data
+            # st.markdown(processed_data)
                 
-
+    if st.session_state.answer:
+        st.markdown(st.session_state.answer)
 
 
 
