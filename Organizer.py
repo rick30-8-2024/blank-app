@@ -8,7 +8,7 @@ from utils import fetch_videos
 from utils import SUMMRIZATION_PROMPT, ANSWER_GENERATION_PROMPT, LINK_SUMMERIZATION_PROMPT
 from utils import split_corpus
 from utils import REPORT_GENERATION_PROMPT, SHORT_ANSWER_FINE_TUNING_PROMPT, IMAGE_SUMMERIZATION_PROMPT
-import json
+from utils import is_article, is_image_url
 
 
 
@@ -38,7 +38,7 @@ class Organizer:
                 else:
                     return []  
             else:
-                print("url_answer", urls.get('answer'))
+                # print("url_answer", urls.get('answer'))
                 return urls.get('answer') or []  
         except Exception as e:
             print("Exception occurred:", str(e))
@@ -48,15 +48,15 @@ class Organizer:
 
     async def summerize(self, data, prompt, model='Meta-Llama-3.2-3B-Instruct', show = False):
         text, query, key = data
-        if show:
-            print(data)
+        # if show:
+        #     print(data)
         
         prompt = prompt.format(data = text, query = query)
 
         data = await asyncio.to_thread(ask_llm, query=prompt, model=model , JSON=False, api_key=key)
         if "[status: failed]" in data:
             return ""
-        print("-"*150,'\n',data,'\n',"-"*150)
+        # print("-"*150,'\n',data,'\n',"-"*150)
         return data
 
     async def Processor(self, url):
@@ -70,63 +70,46 @@ class Organizer:
         chunked_text = split_corpus(text_corpus)
         
         while len(chunked_text) > 1:  
-            print("Here We Go Again")
+            # print("Here We Go Again")
             text_chunk_list = [(chunk, query, self.keys[m % len(self.keys)]) for m, chunk in enumerate(chunked_text)]
             tasks = [self.summerize(chunk, prompt=prompt, model = model) for chunk in text_chunk_list]
             results = await asyncio.gather(*tasks)
             
             text_corpus = "\n\n".join(results)
-            print(len(text_corpus))  
+            # print(len(text_corpus))  
             chunked_text = split_corpus(text_corpus) 
-            print(len(chunked_text)) 
+            # print(len(chunked_text)) 
         
         text_corpus = await self.summerize(data = (text_corpus, query, random.choice(self.keys)), prompt =  ANSWER_GENERATION_PROMPT, model = 'Meta-Llama-3.1-70B-Instruct')
-        print(model)
+        # print(model)
         return text_corpus  
-
-    # async def process_text_corpus(self, text_corpus, query, prompt, model="Meta-Llama-3.1-8B-Instruct", batch_size=5):
-    #     chunked_text = split_corpus(text_corpus)
-
-    #     async def summarize_chunk(chunk_data):
-    #         chunk, query, key = chunk_data
-    #         return await self.summerize((chunk, query, key), prompt=prompt, model=model)
-
-    #     while len(chunked_text) > 1:
-    #         print("Here We Go Again")
-
-    #         text_chunk_list = [(chunk, query, self.keys[m % len(self.keys)]) for m, chunk in enumerate(chunked_text)]
-            
-    #         # Process in batches of `batch_size`
-    #         results = []
-    #         for i in range(0, len(text_chunk_list), batch_size):
-    #             # Send a batch of 10 requests concurrently
-    #             batch = text_chunk_list[i:i + batch_size]
-    #             tasks = [summarize_chunk(chunk_data) for chunk_data in batch]
-                
-    #             # Await all the tasks in the current batch
-    #             batch_results = await asyncio.gather(*tasks)
-                
-    #             # Collect the results of the batch
-    #             results.extend(batch_results)
-    #             print(f"Processed batch {i // batch_size + 1}, total length: {len(results)}")
-            
-    #         # Join the results of all batches
-    #         text_corpus = "\n\n".join(results)
-    #         print(f"Total length of text corpus after batch processing: {len(text_corpus)}")
-            
-    #         # Split the text corpus again for the next iteration
-    #         chunked_text = split_corpus(text_corpus)
-    #         print(f"Number of chunks after split: {len(chunked_text)}")
-        
-    #     # Final summarization with the larger model
-    #     text_corpus = await self.summerize(data=(text_corpus, query, random.choice(self.keys)), prompt=ANSWER_GENERATION_PROMPT, model="Meta-Llama-3.1-70B-Instruct")
-    #     print(model)
-    #     return text_corpus
-
     
+    async def mass_check(self, list_of_data, function):
+        if function == 'image':
+            tasks = [is_image_url(i) for i in list_of_data]
+
+        if function == 'link':
+            tasks = [is_article(i) for i in list_of_data]
+
+        filtered_data = await asyncio.gather(*tasks)
+        return [i for i in filtered_data if i != None]
+
     async def process_url(self, filtered_urls):
         tasks = [self.Processor(url) for url in filtered_urls]
         list_of_json = await asyncio.gather(*tasks)
+        self.all_Images = await self.mass_check([
+                                i for i in self.all_Images
+                                if (
+                                    not i['alt'] == ''  # Check if alt text is not empty
+                                    and any(ext in i['src'] for ext in [".png", ".jpg", ".webp", ".jpeg"])  # Check for allowed extensions
+                                    and "svg" not in i['src']  # Exclude SVG images
+                                    and not i['src'].startswith("data")  # Exclude inline base64 images
+                                    and i['src'].startswith("https://")
+                                )
+                            ], 'image')
+        self.all_links = await self.mass_check([i for i in self.all_links if i['text'] != '' and i['href'].startswith("https://")], 'link')
+        print("all Images",self.all_Images)
+        print("all links", self.all_links)
         return {"Crawl Results": list_of_json}
 
     async def multi_text_processor(self, query):
@@ -137,6 +120,7 @@ class Organizer:
 
         text_image_links = await asyncio.gather(*tasks)
         final_report = ask_llm(query= REPORT_GENERATION_PROMPT.format(data = str(text_image_links), question = query), model="Meta-Llama-3.1-405B-Instruct")
+        print(final_report)
         return final_report
 
     def fine_tune_ans(self, query, answer):

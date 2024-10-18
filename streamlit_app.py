@@ -103,7 +103,7 @@ async def main():
 
 
     if st.session_state.ready_for_extraction == True:
-        with st.spinner('Summerizing ANd Extracting Key Informations...'):
+        with st.spinner('Summerizing and Generating Report (This may take upto 2 mins)...'):
             processed_data = await organizer.multi_text_processor(st.session_state.search_query)
             st.markdown(processed_data)
                 

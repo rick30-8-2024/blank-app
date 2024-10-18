@@ -2,7 +2,8 @@ import re
 import openai
 import json
 from duckduckgo_search import DDGS
-
+import aiohttp
+from bs4 import BeautifulSoup
 
 def extract_query(text: str) -> str:
     pattern = r"```(.*?)```"
@@ -25,7 +26,7 @@ def ask_llm(query, api_key = "95aa27ad-fe66-42f3-b745-b81217733190", model = "Me
             response_format={"type": "json_object"}
         )
         if not JSON:
-            print(model)
+            # print(model)
             return extract_query(response.choices[0].message.content)
         try:
             data = json.loads(extract_query(response.choices[0].message.content))
@@ -83,6 +84,46 @@ def split_corpus(corpus, max_words=4000):
 
     return [" ".join(i) for i in all_splits]
 
+async def is_image_url(data):
+    url = data['src']
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.head(url, timeout=5) as response:
+                # Check if the content type is an image
+                if response.headers.get("Content-Type", "").startswith("image"):
+                    return data
+                else:
+                    return None
+    except Exception as e:
+        print(f"Error checking URL: {e}")
+        return None
+
+async def is_article(data):
+    url = data['href']
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=10) as response:
+                content = await response.text()
+                if "<article" in content:
+                    return data
+                # soup = BeautifulSoup(content, 'html.parser')
+
+                # # Check for an <article> tag
+                # article_tag = soup.find('article')
+
+                # # Optionally, check for Open Graph metadata
+                # og_type = soup.find('meta', property="og:type")
+                # is_og_article = og_type and og_type.get('content') == 'article'
+
+                # if bool(article_tag or is_og_article):
+                #     return data
+                else:
+                    return None
+    
+    except Exception as e:
+        print(f"Error fetching or parsing URL: {e}")
+        return None
+
 
 SUMMRIZATION_PROMPT = """{data} \n Extract and Summerize all the informations related to "{query}", Withing 200 words in Bullet format."""
 
@@ -131,7 +172,7 @@ LINK_SUMMERIZATION_PROMPT = """
                             """
 
 IMAGE_SUMMERIZATION_PROMPT = """
-                            {data} \n Extract 5 links that can use used as references when generating a report on "{query}", in JSON format with "links" as the key and a list of url as value.
+                            {data} \n Extract 5 links that can be attached to the report on: "{query}", in JSON format with "links" as the key and a list of url as value.
                             """
 
 REPORT_GENERATION_PROMPT = """
