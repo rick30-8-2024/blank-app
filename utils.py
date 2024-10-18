@@ -10,7 +10,7 @@ def extract_query(text: str) -> str:
     return matches[0] if matches else text
 
 
-def ask_llm(query, api_key = "95aa27ad-fe66-42f3-b745-b81217733190", json_schema = None, model = "Meta-Llama-3.1-70B-Instruct", JSON = False):
+def ask_llm(query, api_key = "95aa27ad-fe66-42f3-b745-b81217733190", model = "Meta-Llama-3.1-70B-Instruct", JSON = False):
     for i in range(5):
         SambaNova_Client = openai.OpenAI(
                 api_key=api_key,
@@ -25,6 +25,7 @@ def ask_llm(query, api_key = "95aa27ad-fe66-42f3-b745-b81217733190", json_schema
             response_format={"type": "json_object"}
         )
         if not JSON:
+            print(model)
             return extract_query(response.choices[0].message.content)
         try:
             data = json.loads(extract_query(response.choices[0].message.content))
@@ -88,9 +89,10 @@ SUMMRIZATION_PROMPT = """{data} \n Extract and Summerize all the informations re
 ANSWER_GENERATION_PROMPT = """Answer this query: {query}, based on the following context in Markdown Format. 
                             Context: {data}
                             You may use Your own knowledge if required, but do not mention about your own knowledge anywhere.
+                            Generated answer must be within 800 words.
                             """
 
-DYNAMIC_SEARCH_PROMPT = """
+QUICK_SEARCH_PROMPT = """
                             Answer this question in this format:
                             {"status":str, "answer": str, "urls": list(str)}
                             YOU MUST PUT THE JSON ANSWER WITHIN TWO ```
@@ -99,6 +101,47 @@ DYNAMIC_SEARCH_PROMPT = """
                             if you can't answer the question keep answer as empty.
                             if you are not able to answer with the provided context return a list of urls from the provided ones that you would like to visit for more data. return a list of upto 5 urls.
                             if you are able to answer from the provide context keep the urls empty.
-                            NOTE: if you think that the question provided is a descriptive type, return a list of upto 5 urls for further research.
+                            NOTE: YOU MUSTREPLY WITH UPTO 5 URLS IF YOURE ASKED TO GENERATE ANY CODE IN THE QUESTION. DO NOT GENERATE ANY CODE EVEN IF YOU KNOW THE ANSWER.
                             Question: 
                         """
+
+LENGTHY_SEARCH_PROMPT = """
+                            Answer this question in this format:
+                            {"status":"pending", "urls": list(str)}
+                            YOU MUST PUT THE JSON ANSWER WITHIN TWO ```
+
+                            Return a list of upto 5 urls from the provided ones that you would like to visit for more Context to answer the following question.
+                            Question:
+
+                        """
+
+SHORT_ANSWER_FINE_TUNING_PROMPT = """
+                            Question:
+                            {query}
+                            Answer:
+                            {answer}
+
+                            You have been Provided with a question and it's answer. Your job is to make the answer more Humanlike.
+                            Please Generate the answer in Markdown Format in a Humanlike way.
+                            NOTE: IF THERE IS ANY CODE INVOLVED THE ANSWER YOU MUST PUT THE CODE BETWEEN TWO ```
+                            """
+
+LINK_SUMMERIZATION_PROMPT = """
+                            {data} \n Extract 5 image urls related to "{query}", in JSON format with "images" as the key and a list of url as value.
+                            """
+
+IMAGE_SUMMERIZATION_PROMPT = """
+                            {data} \n Extract 5 links that can use used as references when generating a report on "{query}", in JSON format with "links" as the key and a list of url as value.
+                            """
+
+REPORT_GENERATION_PROMPT = """
+                            {data}
+                            You have been provided with a report and some images and links related to this question:
+                            {question}
+
+                            your job is to unify them and create a Final report that consists of all three of these in MARKDOWN format.
+
+                            NOTE: PUT THE IMAGE URLS IN A WAY SO THAT THEY CAN BE DISPLAYED DIRETLY ON THE MARKDOWN.
+                                  PUT THE REFERENCE AS YOU SEE FIT.
+                                  MAKE THE REPORT LOOK AS HUMAN LIKE AS POSSIBLE.
+                            """
