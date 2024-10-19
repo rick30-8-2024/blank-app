@@ -1,12 +1,11 @@
 import streamlit as st
-import time
-from search_agent import Research_Tool
-import random
-from utils import QUICK_SEARCH_PROMPT, LENGTHY_SEARCH_PROMPT
+from utils import QUICK_SEARCH_PROMPT, LENGTHY_SEARCH_PROMPT, INITIAL_DECISION_PROMPT
+from utils import ask_llm
 from Organizer import Organizer
 import asyncio
+import time
+from streamlit_image_gallery import streamlit_image_gallery
 
-search_engine = Research_Tool()
 organizer = Organizer()
 
 
@@ -18,7 +17,8 @@ async def main():
     st.session_state.crawl_status = False
     st.session_state.ready_for_extraction = False
     st.session_state.answer = False
-
+    st.session_state.will_search_status = False
+    st.session_state.search_update = False
     
 
     if "search_query" not in st.session_state:
@@ -32,7 +32,7 @@ async def main():
 
 
     # Search button, toogle button
-    Search, toogle, value, _ = st.columns([0.1,0.1,5,20])
+    Search, toogle, reset, _ = st.columns([0.1,0.1,0.1,20])
     with Search:
         if st.button("Search", type="primary"):
             if st.session_state.SearchEngineStatus:
@@ -41,26 +41,46 @@ async def main():
                 st.session_state.crawl_status = False
                 st.session_state.ready_for_extraction = False
                 st.session_state.answer = False
+                st.session_state.will_search_status = False
+                st.session_state.search_update = False
+                time.sleep(2)
 
-            with st.spinner('Searching The Internet...'):
-                #Searching The Internet
-                web_search_results = search_engine.search(st.session_state.search_query, random.randint(10, 15))
-                st.session_state.SearchEngineStatus = True
+            #Checking if Internet Search is required
+            with st.spinner("Deciding If Internet Search is Necessary"):
+                query = INITIAL_DECISION_PROMPT+st.session_state.search_query
+                data = ask_llm(query=query, model="Meta-Llama-3.1-405B-Instruct", JSON=True)
+                if data['status'] == 'success':
+                    st.session_state.answer = data['answer']
+                else:
+                    st.session_state.search_query = data['query']
+                    st.session_state.search_update = True
+
+    #Displaying Updated Search Query               
+    if st.session_state.search_update == True:
+        with st.expander("Updated Search Query"):
+            st.json({"Search_Query": st.session_state.search_query})
+            st.session_state.will_search_status = True
+
+    if st.session_state.will_search_status == True:
+        with st.spinner('Searching The Internet...'):
+            #Searching The Internet
+            web_search_results = organizer.search_internet(query=st.session_state.search_query)
+            st.session_state.SearchEngineStatus = True
     
     #Updating Internet Data
     if st.session_state.SearchEngineStatus:
         with st.expander("Data from the internet"):
-            st.json(web_search_results)
+            st.json(web_search_results['text'])
             #Quick Search
             if st.session_state.Searching_mode == "quick_search":
                 with st.spinner('Deciding If Answer can be Constructed or Need more data...'):
-                    temp_ans = organizer.get_filtered_urls(all_urls=web_search_results, prompt=QUICK_SEARCH_PROMPT, query= st.session_state.search_query)
+                    temp_ans = organizer.get_filtered_urls(all_urls=web_search_results['text'], prompt=QUICK_SEARCH_PROMPT, query= st.session_state.search_query)
                     st.session_state.Decision = True
                     
             #Research Mode
             if st.session_state.Searching_mode == "research":
                 with st.spinner('Filtering Important urls to CRAWL...'):
-                    temp_ans = organizer.get_filtered_urls(all_urls=web_search_results, prompt=LENGTHY_SEARCH_PROMPT, query= st.session_state.search_query)
+                    temp_ans = organizer.get_filtered_urls(all_urls=web_search_results['text'], prompt=LENGTHY_SEARCH_PROMPT, query= st.session_state.search_query)
                     st.session_state.Decision = True
                     
 
@@ -81,7 +101,6 @@ async def main():
             #Meaning It's the answer
             with st.spinner('Structuring The Answer...'):
                 st.session_state.answer = organizer.fine_tune_ans(query = st.session_state.search_query, answer = temp_ans)
-                # st.markdown()
 
     if st.session_state.crawl_status == True:
         with st.spinner('Crawling and Collecting Data...'):
@@ -92,13 +111,23 @@ async def main():
 
 
     if st.session_state.ready_for_extraction == True:
-        with st.spinner('Summerizing and Generating Report (This may take upto 2 mins)...'):
+        with st.spinner('Summerizing and Generating Report (30 sec to several minutes)...'):
             processed_data = await organizer.multi_text_processor(st.session_state.search_query)
             st.session_state.answer = processed_data
             # st.markdown(processed_data)
                 
     if st.session_state.answer:
+        #4 urls & 1 more button
+
         st.markdown(st.session_state.answer)
+
+        if st.session_state.SearchEngineStatus == True:
+            if web_search_results['video'] != []:
+                st.subheader("Video Results")
+                images = [{"src":i['image'], "title":i['url']} for i in web_search_results['video']]
+                streamlit_image_gallery(images=images, max_rows=2, max_width=800, max_cols=3)
+                
+
 
 
 
@@ -108,13 +137,15 @@ async def main():
 
 
     with toogle:
-        status = st.checkbox("Research Mode (Takes 35sec - 2mins)")
+        status = st.checkbox("Research Mode (Takes 35sec - Several Minutes)")
         if status:
             st.session_state.Searching_mode = "research"
         if not status:
             st.session_state.Searching_mode = "quick_search"
 
-
+    with reset:
+        if st.button("Ask Another", type = "secondary"):
+            st.rerun()
     
 
 
@@ -133,3 +164,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+

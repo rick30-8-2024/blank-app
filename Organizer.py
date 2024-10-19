@@ -4,11 +4,11 @@ import random
 from search_agent import Research_Tool
 from utils import ask_llm
 from utils import fetch_videos
-from utils import SUMMRIZATION_PROMPT, ANSWER_GENERATION_PROMPT, LINK_SUMMERIZATION_PROMPT
+from utils import SUMMRIZATION_PROMPT
 from utils import split_corpus
-from utils import REPORT_GENERATION_PROMPT, SHORT_ANSWER_FINE_TUNING_PROMPT, IMAGE_SUMMERIZATION_PROMPT
+from utils import REPORT_GENERATION_PROMPT, SHORT_ANSWER_FINE_TUNING_PROMPT
 from utils import is_article, is_image_url
-
+from utils import perform_image_search
 
 
 class Organizer:
@@ -27,7 +27,7 @@ class Organizer:
         self.all_urls = [i['url'] for i in all_urls]
         
         urls = ask_llm(query=str(all_urls) + prompt + query, JSON=True, model='Meta-Llama-3.1-70B-Instruct')
-        print(urls)
+        # print(urls)
         try:
             if urls.get('status') == 'pending':
                 if urls.get('urls'):
@@ -58,7 +58,7 @@ class Organizer:
         else:
             prompt = prompt.format(data = text, query = query)
         try:
-            data = await asyncio.to_thread(ask_llm, query=prompt, model=model , JSON=True, api_key=key)
+            data = await asyncio.to_thread(ask_llm, query=prompt, model=model , JSON=False, api_key=key)
             if "[status: failed]" in data:
                 return ""
             # print("-"*150,'\n',data,'\n',"-"*150)
@@ -68,17 +68,16 @@ class Organizer:
 
     async def Processor(self, url):
         data = self.researcher.scrape_page(url, Get_Soup=True)
-        print(len(data))
-        if len(data) > 2:
-            print(data)
-        raw, json_response = data
-        self.full_text += raw
-        return json_response
+        # print(len(data))
+        if data:
+            raw, json_response = data
+            self.full_text += raw
+            return json_response
     
     async def process_text_corpus(self, text_corpus, query, prompt, model = "Meta-Llama-3.1-8B-Instruct"):
-        print(text_corpus)
+        # print(text_corpus)
         chunked_text = split_corpus(text_corpus, max_words=1000)
-        print(len(chunked_text))
+        # print(len(chunked_text))
         while len(chunked_text) > 1:  
             # print("Here We Go Again")
             text_chunk_list = [(chunk, query, self.keys[m % len(self.keys)]) for m, chunk in enumerate(chunked_text)]
@@ -120,6 +119,12 @@ class Organizer:
         print(data)
         return data
     
+    def search_internet(self, query):
+        text_data = self.researcher.search(query, random.randint(10, 15))
+        # image_data = perform_image_search(query=query)
+        video_data = fetch_videos(query, random.randint(10, 15))
+
+        return {"text":text_data, "image": [], "video": video_data}
 
 
 
@@ -140,9 +145,9 @@ class Organizer:
 
         summery = await self.process_text_corpus(alltext, query, prompt=SUMMRIZATION_PROMPT)
         summery = summery.strip('\n').strip(" ")
-        print(self.all_Images)
-        print(self.all_links)
-        print(self.all_urls)
+        # print(self.all_Images)
+        # print(self.all_links)
+        # print(self.all_urls)
         # print(len(final_data_list))
         # print(final_data_list)
         # final_data_list = "\n\n".join(final_data_list)

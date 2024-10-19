@@ -51,24 +51,24 @@ def ask_llm(query, api_key = "95aa27ad-fe66-42f3-b745-b81217733190", model = "Me
                 api_key=api_key,
                 base_url="https://api.sambanova.ai/v1",
             )
-
+        # print(query)
         response = SambaNova_Client.chat.completions.create(
             model=model,
             messages=[{"role":"system","content": "You're a advance data analyst."},{"role":"user","content":query}],
             temperature =  0.1,
             top_p = 0.1,
         )
+        ans = response.choices[0].message.content
+        # print(ans)
         if not JSON:
             # print(model)
-            return response.choices[0].message.content
+            return ans
         try:
-            data = json.loads(extract_query(response.choices[0].message.content))
+            data = json.loads(extract_query(ans))
             return data
         except Exception as e:
             print(e)
             print(response.choices[0].message.content)
-
-
 
 
 def perform_image_search(query: str) -> List[Dict[str, Any]]:
@@ -124,7 +124,7 @@ def fetch_videos(query, no_of_results):
         duration="medium",
         max_results=no_of_results,
     )
-    return results
+    return [{"url": i['content'], "image": [m for m in [i['images']['large'], i['images']['medium'], i['images']['small']] if m != ''][0] } for i in results]
 
 def split_corpus(corpus, max_words=4000):
     sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|!|\n)\s+', corpus.strip())
@@ -179,13 +179,6 @@ async def is_article(data):
         return None
 
 
-
-ANSWER_GENERATION_PROMPT = """Answer this query: {query}, based on the following context in Markdown Format. 
-                            Context: {data}
-                            You may use Your own knowledge if required, but do not mention about your own knowledge anywhere.
-                            Generated answer must be within 800 words.
-                            """
-
 QUICK_SEARCH_PROMPT = """
                             Answer this question in this format:
                             {"status":str, "answer": str, "urls": list(str)}
@@ -218,18 +211,10 @@ SHORT_ANSWER_FINE_TUNING_PROMPT = """
                             {answer}
 
                             You have been Provided with a question and it's answer. Your job is to make the answer more Humanlike.
-                            Please Generate the answer in Markdown Format in a Humanlike way.
+                            Please Generate the answer in Markdown Format in a Humanlike way and Professional.
                             NOTE: IF THERE IS ANY CODE INVOLVED THE ANSWER YOU MUST PUT THE CODE BETWEEN TWO ```
+                            IF NO CODE IS INVOLVED DO NOT MENTION ABOUT ANY CODES
                             """
-
-LINK_SUMMERIZATION_PROMPT = """
-                            {data} \n Extract 5 image urls related to "{query}", in JSON format with "images" as the key and a list of url as value.
-                            """
-
-IMAGE_SUMMERIZATION_PROMPT = """
-                            {data} \n Extract 5 links that can be attached to the report on: "{query}", in JSON format with "links" as the key and a list of url as value.
-                            """
-
 REPORT_GENERATION_PROMPT = """
                             {data}
                             You have been provided with some structured data related to this question:
@@ -237,6 +222,7 @@ REPORT_GENERATION_PROMPT = """
 
                             your job is to unify them and create a Final report that consists of all three of these in MARKDOWN format.
                             Take the images and the link urls from the provided urls only and don't make them up yourself.
+                            Regardless of whatever in the context you will make the report only for the provided question.
 
                             NOTE: PUT THE IMAGE URLS IN A WAY SO THAT THEY CAN BE DISPLAYED DIRETLY ON THE MARKDOWN.
                                   PUT THE REFERENCE AS YOU SEE FIT.
@@ -253,4 +239,13 @@ SUMMRIZATION_PROMPT = """Generate me a report within 500 words in JSON format us
             add only the image and links that are strongly related to the report topic.
             in the summery describe the Report topic based on the provided context briefly within 800 words.
             Report Topic:
+            """
+
+
+INITIAL_DECISION_PROMPT = """You will be provided a question.
+            Construct the answer in JSON format strictly using this schema:
+            {"status": str, "answer": str}
+            and Return {"status":"success", "answer": answer} if the question is greetings or it does not require a search on the internet to answer.
+            Return {"status": "search", "query": search query} if it require to search the internet or if the query asks to generate any kind of code.
+            Question:
             """
