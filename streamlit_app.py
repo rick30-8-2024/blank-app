@@ -12,30 +12,13 @@ organizer = Organizer()
 
 
 async def main():
-    st.set_page_config(layout="wide", page_title="AI-Researcher")
+    st.set_page_config(layout="centered", page_title="AI-Researcher")
     st.session_state.SearchEngineStatus = False
     st.session_state.Decision = False
     st.session_state.crawl_status = False
     st.session_state.ready_for_extraction = False
     st.session_state.answer = False
 
-    st.markdown(
-            """
-            <style>
-            .code-background {
-                background-color: #1a1c24; 
-                color: #fff;     
-                padding-top: 3px;
-                padding-left: 10px;
-                border-radius: 10px;
-                font-family: monospace;    
-                font-size: 16px;
-                white-space: pre-wrap;     
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
     
 
     if "search_query" not in st.session_state:
@@ -43,6 +26,7 @@ async def main():
 
     # LANDING PAGE
     st.header("AI-Researcher")
+
     #Search Bar
     st.session_state.search_query = st.text_input("", placeholder="Search Query Here...", key="top_search")
 

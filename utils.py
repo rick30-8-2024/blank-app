@@ -179,7 +179,6 @@ async def is_article(data):
         return None
 
 
-SUMMRIZATION_PROMPT = """{data} \n Extract and Summerize all the informations related to "{query}", Withing 200 words in Bullet format."""
 
 ANSWER_GENERATION_PROMPT = """Answer this query: {query}, based on the following context in Markdown Format. 
                             Context: {data}
@@ -233,7 +232,7 @@ IMAGE_SUMMERIZATION_PROMPT = """
 
 REPORT_GENERATION_PROMPT = """
                             {data}
-                            You have been provided with a report and some images and links related to this question:
+                            You have been provided with some structured data related to this question:
                             {question}
 
                             your job is to unify them and create a Final report that consists of all three of these in MARKDOWN format.
@@ -242,4 +241,16 @@ REPORT_GENERATION_PROMPT = """
                             NOTE: PUT THE IMAGE URLS IN A WAY SO THAT THEY CAN BE DISPLAYED DIRETLY ON THE MARKDOWN.
                                   PUT THE REFERENCE AS YOU SEE FIT.
                                   MAKE THE REPORT LOOK AS HUMAN LIKE AS POSSIBLE.
+                                  YOU MAY USE YOUR OWN KNOWLEDGE TO ADD SOMETHING TO THE REPORT, MAINTAINING THE QUALITY.
+                                  MAKE THE REPORT DESCRIPTIVE.
                             """
+
+
+SUMMRIZATION_PROMPT = """Generate me a report within 500 words in JSON format using this schema:
+            {"summery": list({"heading": description}, ...), "Images": list({"url": str, "description": str}, ...), "links": list({"url": str, "description": str}, ...)}
+            The Images and the Links Must be Present in the context. if no Image or Link found keep the list empty.
+            DO NOT USE YOUR KNOWLEDGE TO CONSTRUCT THE ANSWER. USE ONLY WHAT IS PROVIDED IN THE CONTEXT.
+            add only the image and links that are strongly related to the report topic.
+            in the summery describe the Report topic based on the provided context briefly within 800 words.
+            Report Topic:
+            """

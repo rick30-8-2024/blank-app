@@ -53,13 +53,14 @@ class Research_Tool:
 
         return results
 
-    def scrape_page(self, url: str, header_disabled = False) -> Dict[str, Any]:
+    def scrape_page(self, url: str, header_disabled = False, Get_Soup = False) -> Dict[str, Any]:
         try:
             if header_disabled:
                 response = requests.get(url, timeout=5)
             else:
                 response = requests.get(url, headers=self.headers, timeout=5)
             response.raise_for_status()
+            
             soup = BeautifulSoup(response.text, 'html.parser')
 
             result = {
@@ -67,7 +68,9 @@ class Research_Tool:
                 'metadata': self.extract_metadata(soup, url),
             }
             result['structured_data'] = self.extract_structured_data(soup)
-            return result
+            if Get_Soup:
+                return (response.text, result)
+            return ("", result)
         except requests.RequestException as e:
             try:
                 return self.scrape_page(url=url, header_disabled=True)
@@ -233,37 +236,3 @@ class Research_Tool:
         log_debug(f"Removed duplicates, left with {len(unique_results)} results")
         return unique_results
 
-    def get_web_content(self, url: str) -> str:
-        log_debug(f"Fetching content from: {url}")
-        try:
-            response = requests.get(url, headers=self.headers, timeout=5)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            for script in soup(["script", "style"]):
-                script.decompose()
-            
-            text = soup.get_text()
-            lines = (line.strip() for line in text.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            text = '\n'.join(chunk for chunk in chunks if chunk)
-            
-            content = text[:self.max_tokens]
-            log_debug(f"Retrieved {len(content)} characters of content")
-            return content
-        except requests.RequestException as e:
-            log_debug(f"Error retrieving content from {url}: {str(e)}")
-            return ""
-
-    def is_url(self, text: str) -> bool:
-        try:
-            result = urlparse(text)
-            return all([result.scheme, result.netloc])
-        except ValueError:
-            return False
-
-    def _clean_url(self, url: str) -> str:
-        url = url.rstrip(')')  # Remove trailing parenthesis if present
-        if not url.startswith(('http://', 'https://')):
-            url = 'https://' + url  # Add https:// if missing
-        return url
