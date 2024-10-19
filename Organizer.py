@@ -8,14 +8,15 @@ from utils import SUMMRIZATION_PROMPT
 from utils import split_corpus
 from utils import REPORT_GENERATION_PROMPT, SHORT_ANSWER_FINE_TUNING_PROMPT
 from utils import is_article, is_image_url
-from utils import perform_image_search
-
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 class Organizer:
     def __init__(self):
         self.researcher = Research_Tool()
         self.session = requests.session()
-        self.keys = open("keys.txt").read().split("\n")
+        self.keys = os.environ.get("SAMBANOVA_KEYS").split()
         self.all_Images = []
         self.all_links = []
         self.full_text = ""
