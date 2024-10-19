@@ -3,7 +3,7 @@ import asyncio
 import random
 from search_agent import Research_Tool
 from utils import ask_llm
-from utils import fetch_videos
+from utils import fetch_videos, perform_image_search
 from utils import SUMMRIZATION_PROMPT
 from utils import split_corpus
 from utils import REPORT_GENERATION_PROMPT, SHORT_ANSWER_FINE_TUNING_PROMPT
@@ -122,10 +122,10 @@ class Organizer:
     
     def search_internet(self, query):
         text_data = self.researcher.search(query, random.randint(10, 15))
-        # image_data = perform_image_search(query=query)
+        image_data = perform_image_search(query=query)
         video_data = fetch_videos(query, random.randint(10, 15))
 
-        return {"text":text_data, "image": [], "video": video_data}
+        return {"text":text_data, "image": image_data, "video": video_data}
 
 
 

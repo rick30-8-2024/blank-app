@@ -3,7 +3,7 @@ from utils import QUICK_SEARCH_PROMPT, LENGTHY_SEARCH_PROMPT, INITIAL_DECISION_P
 from utils import ask_llm
 from Organizer import Organizer
 import asyncio
-import time
+import time, random
 from streamlit_image_gallery import streamlit_image_gallery
 
 organizer = Organizer()
@@ -123,9 +123,12 @@ async def main():
 
         if st.session_state.SearchEngineStatus == True:
             if web_search_results['video'] != []:
-                st.subheader("Video Results")
-                images = [{"src":i['image'], "title":i['url']} for i in web_search_results['video']]
-                streamlit_image_gallery(images=images, max_rows=2, max_width=800, max_cols=3)
+                st.subheader("Media Results")
+                r1 = [{"src":i['image'], "title":i['url']} for i in web_search_results['video']]
+                r2 = [{"src":i['image_url'], "title":i['page_url']} for i in web_search_results['image']]
+                image = random.sample(r1, min(len(r1),15)) + random.sample(r2, min(len(r2),15))
+                random.shuffle(image)
+                streamlit_image_gallery(images=image, max_rows=2, max_width=800, max_cols=3)
                 
 
 
