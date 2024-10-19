@@ -48,7 +48,7 @@ async def main():
             #Checking if Internet Search is required
             with st.spinner("Deciding If Internet Search is Necessary"):
                 query = INITIAL_DECISION_PROMPT+st.session_state.search_query
-                data = ask_llm(query=query, model="Meta-Llama-3.1-405B-Instruct", JSON=True)
+                data = ask_llm(query=query, model="Meta-Llama-3.1-405B-Instruct", JSON=True, api_key= organizer.get_key())
                 if data['status'] == 'success':
                     st.session_state.answer = data['answer']
                 else:

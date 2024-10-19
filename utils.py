@@ -8,7 +8,9 @@ import jsbeautifier
 from urllib.parse import urlparse, urljoin, quote_plus
 from typing import Dict, Any, List
 import requests
-
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 DEBUG = False
 
@@ -45,7 +47,7 @@ def extract_image_json(text: str) -> str:
         print(data)
     return data
 
-def ask_llm(query, api_key = "95aa27ad-fe66-42f3-b745-b81217733190", model = "Meta-Llama-3.1-70B-Instruct", JSON = False):
+def ask_llm(query, api_key, model = "Meta-Llama-3.1-70B-Instruct", JSON = False):
     for i in range(5):
         SambaNova_Client = openai.OpenAI(
                 api_key=api_key,

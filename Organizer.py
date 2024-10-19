@@ -27,7 +27,7 @@ class Organizer:
         # print(all_urls)
         self.all_urls = [i['url'] for i in all_urls]
         
-        urls = ask_llm(query=str(all_urls) + prompt + query, JSON=True, model='Meta-Llama-3.1-70B-Instruct')
+        urls = ask_llm(query=str(all_urls) + prompt + query, JSON=True, model='Meta-Llama-3.1-405B-Instruct', api_key=random.choice(self.keys))
         # print(urls)
         try:
             if urls.get('status') == 'pending':
@@ -39,7 +39,7 @@ class Organizer:
                 else:
                     return []  
             elif urls.get('status') == 'code':
-                ans = ask_llm(query = query, model = 'Meta-Llama-3.1-405B-Instruct')
+                ans = ask_llm(query = query, model = 'Meta-Llama-3.1-405B-Instruct', api_key=random.choice(self.keys))
                 return ans
             else:
                 # print("url_answer", urls.get('answer'))
@@ -111,12 +111,12 @@ class Organizer:
     async def multi_text_processor(self, query):
         text_image_links = await self.process_text_corpus(text_corpus= self.full_text, query = query, prompt = SUMMRIZATION_PROMPT, model='Meta-Llama-3.1-405B-Instruct')
         # print(text_image_links)
-        final_report = ask_llm(query= REPORT_GENERATION_PROMPT.format(data = str(text_image_links), question = query), model="Meta-Llama-3.1-405B-Instruct")
+        final_report = ask_llm(query= REPORT_GENERATION_PROMPT.format(data = str(text_image_links), question = query), model="Meta-Llama-3.1-405B-Instruct", api_key=random.choice(self.keys))
         # print(final_report)
         return final_report
 
     def fine_tune_ans(self, query, answer):
-        data = ask_llm(query= SHORT_ANSWER_FINE_TUNING_PROMPT.format(query = query, answer = answer), model="Meta-Llama-3.1-70B-Instruct")
+        data = ask_llm(query= SHORT_ANSWER_FINE_TUNING_PROMPT.format(query = query, answer = answer), model="Meta-Llama-3.1-405B-Instruct", api_key=random.choice(self.keys))
         print(data)
         return data
     
@@ -127,7 +127,8 @@ class Organizer:
 
         return {"text":text_data, "image": image_data, "video": video_data}
 
-
+    def get_key(self):
+        return random.choice(self.keys)
 
 
 
